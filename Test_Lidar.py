@@ -23,7 +23,7 @@ plt.show(block=False)
 
 runTime = 20.0 # seconds
 with QCarLidar(numMeasurements=80,rangingDistanceMode=2, interpolationMode=1, interpolationMaxDistance=0.02, interpolationMaxAngle=0.01) as myLidar:
-t0 = time.time()
+  t0 = time.time()
   while True:
     # while time.time() - t0  < runTime:
     plt.cla()

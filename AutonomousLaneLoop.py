@@ -30,7 +30,7 @@ myCar = QCar(readMode=0)
 def Drive():
     # init Pygame
     pygame.init()
-    driving_model = loadModel("tflite_lane_model.tflite")
+    driving_model = loadModel("tflite_lane_model2.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
     # setup screen size
@@ -214,7 +214,7 @@ def Drive():
                 steering = 0
                 AUTONOMOUS_MODE = False
             else:
-                throttle = .075
+                throttle = .1
                 image_cap_np = camPreview(camIDs=["front"])
                 image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY)
                 
