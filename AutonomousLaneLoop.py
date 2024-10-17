@@ -30,7 +30,7 @@ myCar = QCar(readMode=0)
 def Drive():
     # init Pygame
     pygame.init()
-    driving_model = loadModel("tflite_multidirectional3.tflite")
+    driving_model = loadModel("tflite_multidirectional4.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
     # setup screen size
