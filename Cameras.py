@@ -5,6 +5,7 @@ import threading
 import os
 from pal.products.qcar import QCarCameras, IS_PHYSICAL_QCAR
 from pal.utilities.vision import Camera2D
+from pal.products.qcar import QCarRealSense, IS_PHYSICAL_QCAR
 
 def region_of_interest(image):
     height, width = image.shape[:2]
@@ -53,7 +54,8 @@ def detect_lanes(frame):
 camera_right = Camera2D(cameraId="0",frameWidth=420,frameHeight=220,frameRate=30)
 camera_back = Camera2D(cameraId="1",frameWidth=420,frameHeight=220,frameRate=30)
 camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)
-camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)       
+camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)
+depth_cam = QCarRealSense()      
 
 def camPreview(camIDs):
     while True:
@@ -77,6 +79,14 @@ def camPreview(camIDs):
             if camera_right is not None:
                 detect_lanes(camera_right.imageData)
                 cv2.imshow("Camera Right", camera_right.imageData)
+        if 'depth' in camIDs:
+            if depth_cam is not None: 
+                max_distance = 10
+                myCam.read_depth()
+                image = myCam.imageBufferDepthPX/max_distance
+                arr_image = np.asanyarray(image)
+                cv2.imshow('Depth Image', arr_image)
+                
         key = cv2.waitKey(100)
         if key == 27:  # exit on ESC
             camera_front.terminate()
@@ -93,7 +103,7 @@ def camPreview(camIDs):
 if __name__ == "__main__":
     try:
         while True:
-            camPreview(["front","left","right","back"])
+            camPreview(["front","left","right","back","depth"])
             
 
     except KeyboardInterrupt:
