@@ -1,8 +1,21 @@
+'''
+This program is able to take input from a front facing camera, 
+send said data to a predefined model and implement a result from said model. 
 
+Any model can be used, however this program only utilizes front facing camera for data collection. 
+NO other data form can be used to determine the output of the model. 
 
+Code written by Alex Sanna -> ajsanna@cpp.edu Matthew Baldivino: mabaldivino@cpp.edu 
+Last Tested 10/20/2024
+.
+*** Only works with regressive models> model must predict an exact steering value. 
+*** To specify a model: Declare path on line: 45
+*** Program allows for self driving and ai driving.  
+*** PYGAME keypress: M for manual drive control. 
+*** PYGAME keypress: N for Model driving control. 
+'''
 
-
-# import lib
+# import libraries 
 import pygame
 from pal.products.qcar import QCar
 from pal.utilities.math import *
@@ -17,29 +30,29 @@ import os
 from pal.products.qcar import QCarCameras, IS_PHYSICAL_QCAR
 from pal.utilities.vision import Camera2D
 import tensorflow as tf
-#import torch
-#import keras
 import os 
-#from keras.models import load_model
 
-# create qcar
+# create qcar object 
 myCar = QCar(readMode=0)
 
-
-
+# Main Program for driving the car. 
 def Drive():
-    # init Pygame
     pygame.init()
-    driving_model = loadModel("tflite_multidirectional4.tflite")
+
+    '''
+        This is where you specify what model you would like to use. TFLITE recommended. 
+    '''
+    driving_model = loadModel("Models/tflite_multidirectional4.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
+   
     # setup screen size
     screen_width = 800
     screen_height = 600
     screen = pygame.display.set_mode((screen_width, screen_height))
     pygame.display.set_caption("QCar Autonomous Demo")
 
-    # set up +- increment and maximum
+    # CAR PARAMS: set up +- increment and maximum
     deceleration_increment = .00001
     throttle_increment = 0.005
     steering_increment = 0.005
@@ -57,18 +70,16 @@ def Drive():
     def stop():
         throttle = 0.0
         steering = 0.0
-
-    # main program
     
     # Default LED status
     LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
     isReverse = False
     headlights_on = True
     s_key_pressed = False
-
     turn_signal_timer = 0.0
     turn_signal_interval = 0.5
     turn_signal_state = 0 
+
     running = True
     while running == True:
         if AUTONOMOUS_MODE is False:
@@ -217,7 +228,6 @@ def Drive():
                 throttle = .1
                 image_cap_np = camPreview(camIDs=["front"])
                 image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY)
-                
                 image_cap_grayscale = image_cap_grayscale[np.newaxis, np.newaxis,:,:] #should be shape 1,1,420,220
                 image_cap_grayscale = image_cap_grayscale.astype('float32')
                 driving_model.set_tensor(input_details[0]['index'], image_cap_grayscale)
@@ -226,17 +236,7 @@ def Drive():
                 print(predicted_steering)
                 if predicted_steering >= -.5 and predicted_steering <= .5:
                     steering = predicted_steering
-                
 
-                
-                
-                
-                
-                
-                
-                
-                
-                
         # update qcar control
         myCar.read_write_std(throttle=throttle, steering=steering, LEDs = LEDs)
 

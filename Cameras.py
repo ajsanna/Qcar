@@ -58,6 +58,7 @@ camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30
 depth_cam = QCarRealSense()      
 
 def camPreview(camIDs):
+
     while True:
         if "front" in camIDs:
             camera_front.read()
@@ -82,8 +83,8 @@ def camPreview(camIDs):
         if 'depth' in camIDs:
             if depth_cam is not None: 
                 max_distance = 10
-                myCam.read_depth()
-                image = myCam.imageBufferDepthPX/max_distance
+                depth_cam.read_depth()
+                image = depth_cam.imageBufferDepthPX/max_distance
                 arr_image = np.asanyarray(image)
                 cv2.imshow('Depth Image', arr_image)
                 
@@ -95,13 +96,17 @@ def camPreview(camIDs):
             cv2.destroyWindow("Camera Right")
             camera_back.terminate()
             cv2.destroyWindow("Camera Back")
-            camera_left.terminate()
+            camera_left.S()
             cv2.destroyWindow("Camera Left")
+            #depth_cam.terminate()
+            #cv2.destroyWindow("Depth Image")
             break
             
 
 if __name__ == "__main__":
+    
     try:
+        print("To exit, press ESC")
         while True:
             camPreview(["front","left","right","back","depth"])
             

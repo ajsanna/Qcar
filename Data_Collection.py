@@ -15,11 +15,11 @@ import os
 from datetime import datetime
 from pal.products.qcar import QCarCameras, IS_PHYSICAL_QCAR
 from pal.utilities.vision import Camera2D
+from pal.products.qcar import QCarRealSense
+import sys
 
 # create qcar
 myCar = QCar(readMode=0)
-
-
 
 def Drive():
     image_skipper = 1
@@ -211,8 +211,16 @@ def Drive():
             #pass cam id, global image count, steering value, and throttle value to camPreview
             #camPreview will be used to take a photo of the surroundings as well as write the steering and throttle values to Catalog/images_catalogs.txt
             #global_index is a temporary field. We plan to read the global_index from index_tracker.txt for memory
-            camPreview(["front"], global_index, steering, throttle, catalog)
-            global_index += 1
+            if len(sys.argv) == 2:
+              if sys.argv[1] == "front":
+                camPreview(["front"], global_index, steering, throttle, catalog)
+                global_index += 1
+              else:
+                camPreview(["depth"], global_index, steering, throttle, catalog)
+                global_index += 1
+            else:
+              camPreview(["front", "depth"], global_index, steering, throttle, catalog)
+              global_index += 1
         image_skipper += 1
          # uncomment following line to see live time throttle steering data in terminal    
         #print(throttle, steering, isReverse, LEDs)
@@ -221,9 +229,11 @@ camera_right = Camera2D(cameraId="0",frameWidth=420,frameHeight=220,frameRate=30
 camera_back = Camera2D(cameraId="1",frameWidth=420,frameHeight=220,frameRate=30)
 camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30) 
+depth_cam = QCarRealSense()      
 
 def camPreview(camIDs, global_count, steering, throttle, catalog):
     if int(global_count) >= 0:
+        data = str(global_count) + ", "
         if "front" in camIDs:
             camera_front.read()
             if camera_front is not None:
@@ -233,10 +243,11 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
                 #snapshot function will take a picture
                 snapshot(camera_front.imageData, global_count)
                 img_name = 'sample_' + str(global_count) + '.jpg'
-                data = str(global_count) + ", " + img_name + ", " + str(steering) + ", " + str(throttle) + "\n"
+                #data = str(global_count) + ", " + img_name + ", " + str(steering) + ", " + str(throttle) + "\n"
+                data += (img_name + ", ")
                 #print(data)
-                catalog.write(data)
-                global_count+=1
+                #catalog.write(data)
+                #global_count+=1
         if "back" in camIDs:
             camera_back.read()
             if camera_back is not None:
@@ -255,6 +266,22 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
                 print("right")
                 #detect_lanes(camera_right.imageData)
                 #cv2.imshow("Camera Right", camera_right.imageData)
+        if 'depth' in camIDs:
+            if depth_cam is not None: 
+                max_distance = 10
+                depth_cam.read_depth()
+                #take depth image and store it as an array
+                image = depth_cam.imageBufferDepthPX/max_distance
+                arr_image = np.asanyarray(image)
+                img_name = 'sample_' + str(global_count) + '.npy'
+                data += (img_name + ", ")
+                #save depth image to the specified path below
+                path = "/home/nvidia/Documents/Quanser/ClassHopper/DepthImages/"
+                np.save(os.path.join(path, img_name), arr_image)
+        data += (str(steering) + ", " + str(throttle) + "\n")
+        print(data)
+        catalog.write(data)
+        global_count += 1
         
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 # Create the full path for the new folder
