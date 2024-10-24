@@ -88,10 +88,11 @@ def drive():
                     continue
                 
                 event = int(buffer[1])
-
+                print(event)
 
                 if event == 1536:
                     #IF Axis is Steering Wheel
+                    #print(float(buffer[2]))
                     if float(buffer[2]) == 0:
                         steer = -1* float(buffer[3]) * 2
                         if abs(steering - steer) < 0.05:
@@ -115,8 +116,14 @@ def drive():
                             throttle = max(th, min_throttle)
                         else:
                             throttle = min(th, max_throttle)
+                    
+                    #IF Axis is Brake
+                    elif float(buffer[2]) == 2:
+                        continue 
+                        #Implement Brake algorithm
 
                 if event == 1539:
+                    print(float(buffer[2]))
                     if float(buffer[2]) == 5:
                         print("Reverse Triggered")
                         reverse = True
@@ -126,6 +133,14 @@ def drive():
                     elif float(buffer[2]) == 0:
                         steering = 0
                         throttle = 0
+                        reverse = False
+                    elif float(buffer[2]) == 11:
+                        # Reverse Gear selected. 
+                        print("Reverse Gear Selected")
+                        reverse = True
+                    elif float(buffer[2]) == 12:
+                        # First Gear Selected 
+                        print("1st Gear Selected")
                         reverse = False
 
                 if reverse:

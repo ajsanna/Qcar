@@ -37,6 +37,7 @@ lidar_device = Lidar(type='RPLidar')
 plt.ion()  # Turn on interactive mode
 fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
 
+print(lidar_devices.angles, lidar_devices.distances)
 t0 = time.time()
 
 try:
@@ -62,6 +63,7 @@ try:
 finally:
     plt.ioff()  # Turn off interactive mode
     plt.show()  # Show the final plot after the loop ends
+    print(lidar_device.angles, lidar_device.distances)
     lidar_device.terminate()  # Ensure the device is terminated correctly
 
         

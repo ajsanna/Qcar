@@ -1,5 +1,3 @@
-
-
 # import lib
 import pygame
 from pal.products.qcar import QCar
@@ -25,7 +23,15 @@ def Drive():
     image_skipper = 1
     # init Pygame
     pygame.init()
-
+    depth_image = False
+    
+    if len(sys.argv) > 1:
+      if sys.argv[1] == "depth":
+        depth_image = True
+        print("Collecting Depth")
+    else:
+      print("No Depth Images")
+      
     #file management for memory purposes
     catalog = open(r"images_catalogs.txt", "a")
     tracker = open(r"index_tracker.txt", "r")
@@ -204,7 +210,17 @@ def Drive():
         else:
             LEDs[5] = 0
         
-
+        
+        myCar.read_write_std(throttle=throttle, steering=steering, LEDs = LEDs)
+        if(throttle != 0 and image_skipper % 5 == 0):
+          camPreview(["front"], global_index, steering, throttle, catalog)
+          global_index += 1
+          
+        if(throttle != 0 and image_skipper % 20 == 0 and depth_image):
+          camPreview(["front", "depth"], global_index, steering, throttle, catalog)
+          global_index += 1
+  
+        '''
         # update qcar control
         myCar.read_write_std(throttle=throttle, steering=steering, LEDs = LEDs)
         if(throttle != 0 and image_skipper % 5 == 0 ):
@@ -221,6 +237,9 @@ def Drive():
             else:
               camPreview(["front", "depth"], global_index, steering, throttle, catalog)
               global_index += 1
+              
+              
+        '''
         image_skipper += 1
          # uncomment following line to see live time throttle steering data in terminal    
         #print(throttle, steering, isReverse, LEDs)
@@ -265,7 +284,7 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
             if camera_right is not None:
                 print("right")
                 #detect_lanes(camera_right.imageData)
-                #cv2.imshow("Camera Right", camera_right.imageData)
+                #cv2.imshow("Camera Right", camera_right.imageData)   
         if 'depth' in camIDs:
             if depth_cam is not None: 
                 max_distance = 10
@@ -276,8 +295,14 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
                 img_name = 'sample_' + str(global_count) + '.npy'
                 data += (img_name + ", ")
                 #save depth image to the specified path below
-                path = "/home/nvidia/Documents/Quanser/ClassHopper/DepthImages/"
+                path = "/media/378B-14FD/Depth_Images/"
                 np.save(os.path.join(path, img_name), arr_image)
+       
+          
+        
+        #write to catalog
+        if 'depth' not in camIDs:
+          data += "None, "        
         data += (str(steering) + ", " + str(throttle) + "\n")
         print(data)
         catalog.write(data)
@@ -285,7 +310,7 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
         
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 # Create the full path for the new folder
-path = "/home/nvidia/Documents/Quanser/ClassHopper/Images/"
+path = "/media/378B-14FD/Collected_Images/"
 full_folder_path = os.path.join(path, folder_name)
 os.makedirs(full_folder_path)  
 
@@ -300,5 +325,5 @@ def snapshot(image, global_count):
 
     #write the image to the file at path specified above
     cv2.imwrite(os.path.join(full_folder_path, img_name), img)
-        
+
 Drive()

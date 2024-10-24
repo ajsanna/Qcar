@@ -2,7 +2,7 @@ import numpy as np
 
 # Load the .npy file
 path = "/home/nvidia/Documents/Quanser/ClassHopper/DepthImages/"
-loaded_array = np.load(path + 'sample_30.npy')
+loaded_array = np.load(path + 'sample_1523.npy')
 
 # Print the shape and data type of the loaded array
 print(f"Loaded array shape: {loaded_array.shape}")

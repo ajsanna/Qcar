@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from lidar2 import Lidar
 
 # Initialize parameters
-runTime = 20.0  # Duration to run the LiDAR reading
+runTime = 5.0  # Duration to run the LiDAR reading
 lidar_device = Lidar(type='RPLidar')
 
 # Set up the polar plot
