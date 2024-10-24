@@ -17,7 +17,7 @@ import time
 import matplotlib.pyplot as plt 
 from lidar2 import Lidar
 
-catalog = open("lidar_catalogs1.txt", "w")
+catalog = open("lidar_catalogs2.txt", "w")
 catalog.write("Count, Angles, Distances\n")
 global_count = 0
 
