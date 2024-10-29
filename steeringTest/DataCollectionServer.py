@@ -1,3 +1,8 @@
+
+
+
+
+
 import argparse
 from pal.utilities.vision import Camera2D
 from pal.products.qcar import QCarRealSense
@@ -6,6 +11,7 @@ import sys
 import socket
 import os
 from datetime import datetime
+import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
 
@@ -13,43 +19,16 @@ import cv2
 from pal.products.qcar import QCar, QCarRealSense
 
 import payload
-# import DetectLane as DetectLane
-
-# parser = argparse.ArgumentParser(
-#                                     prog='Q Car Contorl Handler',
-#                                     description='Handles Image Processing and QCar Control'
-#                                 )
-# parser.add_argument(
-#                     "-v", "--video",
-#                     action='store_true',
-#                     help="Enable or Disable Video Capture."
-#                     )
-
-# args = parser.parse_args()
-# videoRecording = False
-# WIDTH = 480
-# HEIGHT = 240
-# if args.video:
-#     videoRecording = True
-
-# if videoRecording:
-#     # Define the codec and create a VideoWriter object
-#     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # You can change the codec as needed (e.g., 'XVID')
-#     out = cv2.VideoWriter('video.mp4', fourcc, fps=30.0, frameSize=(WIDTH, HEIGHT))  # 'output.mp4' is the output file name
-
-#     # Add this line before the main loop to start recording
-#     out.open('video.mp4', fourcc, fps=30.0, frameSize=(WIDTH, HEIGHT))
 
 stopthread = False
 
 myCar = QCar(readMode=0)
-image_skipper = 0
-global_count = 0
-# global_index = 0
+
 max_throttle = 0.2
 min_throttle = -0.2
 max_steering = 0.5
 min_steering = -0.5
+LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
 
 steering = 0
 throttle = 0
@@ -58,6 +37,7 @@ reverse = False
 PORT = 38821  # Port to listen on (non-privileged ports are > 1023)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30) 
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 # Create the full path for the new folder
 path = "/media/378B-14FD/Collected_Images/"
 full_folder_path = os.path.join(path, folder_name)
@@ -65,6 +45,17 @@ os.makedirs(full_folder_path)
 
 def drive():
     print("Driving Starting...")
+    
+     #file management for memory purposes
+    catalog = open(r"images_catalogs.txt", "a")
+    tracker = open(r"index_tracker.txt", "r")
+    global_index = tracker.read()
+    global_index = int(global_index)
+    image_skipper = 0
+    global_count = global_index
+    print("starting index: " + str(global_index))
+    tracker.close()
+    
     global throttle, steering, reverse
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('', PORT))
@@ -105,7 +96,7 @@ def drive():
                     #IF Axis is Steering Wheel
                     #print(float(buffer[2]))
                     if float(buffer[2]) == 0:
-                        steer = -1* float(buffer[3]) * 2
+                        steer = (-1* float(buffer[3])) / 1.5
                         if abs(steering - steer) < 0.05:
                             continue
 
@@ -122,11 +113,8 @@ def drive():
                     #IF Axis is Throttle
                     elif float(buffer[2]) == 1:
                         
-                        th = 0.6 * ((abs(float(buffer[3]) -1 ) /2 ) * 0.2)
-                        if th < 0:
-                            throttle = max(th, min_throttle)
-                        else:
-                            throttle = min(th, max_throttle)
+                        th = (float(buffer[3])) / 2 - 0.5
+                        throttle = th * max_throttle
                     
                     #IF Axis is Brake
                     elif float(buffer[2]) == 2:
@@ -148,21 +136,68 @@ def drive():
                     elif float(buffer[2]) == 11:
                         # Reverse Gear selected. 
                         print("Reverse Gear Selected")
+                        min_throttle = -.075
+                        max_throttle = .075
                         reverse = True
                     elif float(buffer[2]) == 12:
                         # First Gear Selected 
                         print("1st Gear Selected")
+                        max_throttle = .075
                         reverse = False
+                    elif float(buffer[2]) == 13:
+                        # First Gear Selected 
+                        print("2nd Gear Selected")
+                        max_throttle = .125
+                        reverse = False
+                    elif float(buffer[2]) == 14:
+                        # First Gear Selected 
+                        print("3rd Gear Selected")
+                        max_throttle = .2
+                        reverse = False
+                    elif float(buffer[2]) == 15:
+                        # First Gear Selected 
+                        print("4th Gear Selected")
+                        max_throttle = .225
+                        reverse = False
+                    elif float(buffer[2]) == 16:
+                        # First Gear Selected 
+                        print("5th Gear Selected")
+                        max_throttle = .3
+                        reverse = False
+                    elif float(buffer[2]) == 17:
+                        # First Gear Selected 
+                        print("6th Gear Selected")
+                        max_throttle = .35
+                        reverse = False
+                    elif float(buffer[2]) == 6:
+                        LEDs[6] = 1 if LEDs[6] == 0 else 0
+                        LEDs[7] = 1 if LEDs[7] == 0 else 0
+                        LEDs[4] = 1 if LEDs[4] == 0 else 0
+                        
+                    elif float(buffer[2]) == 10:
+                        print("Saving and shutting down.")
+                        catalog.close()
+                        tracker.close()
+                        print("index upon shutdown: " + str(global_count))
+                        tracker_update = open(r"index_tracker.txt", "w")
+                        tracker_update.write(str(global_count))
+                        tracker_update.close()
+                        #print("Shutting Down")
+                        exit(0)
 
                 if reverse:
                     if throttle > 0:
                         throttle *= -1
                 else:
                     throttle = abs(throttle)
-                myCar.write(throttle=throttle, steering=steering)
-                if(throttle != 0 and image_skipper % 5 == 0):
-                    camPreview(["front"], 1, steering, throttle)
                     
+                myCar.write(throttle=throttle, steering=steering, LEDs = LEDs)
+                if(throttle != 0):
+                    camPreview(["front"], global_count, steering, throttle, catalog)
+                    global_count = global_count+1
+                    
+                image_skipper += 1
+                
                     
 
             except Exception as e:
@@ -173,7 +208,7 @@ def drive():
     
     
     
-def camPreview(camIDs, global_count, steering, throttle):
+def camPreview(camIDs, global_count, steering, throttle, catalog):
     if int(global_count) >= 0:
         data = str(global_count) + ", "
         if "front" in camIDs:
@@ -228,7 +263,7 @@ def camPreview(camIDs, global_count, steering, throttle):
           data += "None, "        
         data += (str(steering) + ", " + str(throttle) + "\n")
         print(data)
-        #catalog.write(data)
+        catalog.write(data)
         global_count += 1
         
 def snapshot(image, global_count):
@@ -246,58 +281,7 @@ def snapshot(image, global_count):
 
 
 def main():
-    def exiting():
-        # camera_realsense_rgb.terminate()
-        # if videoRecording:
-        #     out.release()
-        # cv2.destroyWindow("RealSense Camera")
-        global stopthread
-        stopthread=True
-        t2.join()
-        # Close all windows
-        cv2.destroyAllWindows()
-        quit()
-    #Setup Camera and Predition Model for Lane Detection
-    # camera_realsense_rgb = QCarRealSense(mode='RGB')
-    # model = DetectLane.DetectLane()
-
-    
-    # Start Thread For Steering
-    # Accepts Steering Inputs Over UDP
-    # Can Be Easily Modified to Accept Inputs from any Source
-    t2 = threading.Thread(target=drive)
-
-    try:
-        t2.start()
-        while t2.is_alive():
-
-            # camera_realsense_rgb.read_RGB()
-
-            #Send Image for Predition
-            # if camera_realsense_rgb is not None:
-            #     frame = cv2.resize(camera_realsense_rgb.imageBufferRGB, (int(WIDTH), int(HEIGHT)))
-            #     result = model.detectLanes(frame)
-            #     if videoRecording:
-            #         out.write(frame)
-            #     cv2.imshow("RealSense Camera", result)
-
-
-            key = cv2.waitKey(1)
-
-            #If ESC is pressed begin termination sequence
-            if key == 27:
-                exiting()
-                
-
-    except Exception as e:
-        print("Encountered Error:")
-        print(e)
-    finally:
-        print("Exiting Main")
-        exiting()
-
-
-    
+  drive()
 
 if __name__ == '__main__':
     main()
