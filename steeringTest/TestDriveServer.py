@@ -1,5 +1,7 @@
 import argparse
 
+import time
+import subprocess
 import threading
 import sys
 import socket
@@ -52,20 +54,43 @@ LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
 
 steering = 0
 throttle = 0
+currentGear = 1
+speeds = [0, .075, .125, .2, .225, .3, .35]
 reverse = False
 
 PORT = 38821  # Port to listen on (non-privileged ports are > 1023)
+camera_right = Camera2D(cameraId="0",frameWidth=420,frameHeight=220,frameRate=30)
+camera_back = Camera2D(cameraId="1",frameWidth=420,frameHeight=220,frameRate=30)
+camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)
+
+def get_wifi_networks():
+   while(True):
+    """Gets the list of available Wi-Fi networks."""
+
+    command = "nmcli device wifi list"
+    output = subprocess.check_output(command, shell=True)
+    decoded_data = output.decode('utf-8')
+    lines = decoded_data.splitlines()
+    for line in lines:
+            print(line.strip())
+    print("\n" + "-" * 50)
+    print("\n")
+    time.sleep(2)
 
 def drive():   
     print("Driving Starting...")
     left_indicator = 0 
     right_indicator = 0
-    global throttle, steering, reverse
+    rear_cam = False
+    right_cam = False
+    left_cam = False
+    global throttle, steering, reverse, currentGear, speeds
+    
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('', PORT))
         global stopthread
-
+        
         while True:
             if stopthread:
                 break
@@ -95,13 +120,13 @@ def drive():
                     continue
                 
                 event = int(buffer[1])
-                print("throttle: " + str(throttle))
+                #print("throttle: " + str(throttle))
                 #print(event)
 
                 if event == 1536:
                     #IF Axis is Steering Wheel
                     #print(float(buffer[2]))
-                    print(steering)
+                    #print(steering)
                     if float(buffer[2]) == 0:
                         steer = (-1* float(buffer[3])) / 1.5
                         if abs(steering - steer) < 0.05:
@@ -136,15 +161,17 @@ def drive():
                 if event == 1539:
                     #print(float(buffer[2]))
                     if float(buffer[2]) == 5:
-                        print("Reverse Triggered")
-                        reverse = True
+                        reverse = False
+                        currentGear = currentGear - 1 if currentGear > 1 else currentGear
+                        print("Gear: " + str(currentGear))
+                        max_throttle = speeds[currentGear]
                     elif float(buffer[2]) == 4:
-                        print("Forward Triggered")
+                        currentGear = currentGear + 1 if currentGear < 6 else currentGear
+                        print("Gear: " + str(currentGear))
+                        max_throttle = speeds[currentGear]
                         reverse = False
                     elif float(buffer[2]) == 0:
-                        steering = 0
-                        throttle = 0
-                        reverse = False
+                        print("Rear Cam Flipped")
                     elif float(buffer[2]) == 11:
                         # Reverse Gear selected. 
                         print("Reverse Gear Selected")
@@ -185,6 +212,9 @@ def drive():
                         LEDs[6] = 1 if LEDs[6] == 0 else 0
                         LEDs[7] = 1 if LEDs[7] == 0 else 0
                         LEDs[4] = 1 if LEDs[4] == 0 else 0
+                    elif float(buffer[2]) == 1:
+                        print("Right Cam Flipped")
+                       
                     
                         
             
@@ -209,19 +239,35 @@ def camPreview(camIDs = ["front"]):
         if "front" in camIDs:
             camera_front.read()
             if camera_front is not None:
+                #cv2.namedWindow("Camera Front", cv2.WINDOW_NORMAL)
+                #cv2.resizeWindow("Camera Front", 900, 900)
                 cv2.imshow("Camera Front", camera_front.imageData)
+        if "back" in camIDs:
+            camera_back.read()
+            if camera_back is not None:
+                cv2.imshow("Camera Back", camera_back.imageData)
         key = cv2.waitKey(100)
         if key == 27:  # exit on ESC
             camera_front.terminate()
             cv2.destroyWindow("Camera Front")
-    
+
+
+
+keyControl = threading.Thread(target=drive)
+cameraAccess = threading.Thread(target=camPreview,args=[["front"]])
+
+
 def main():
-    keyControl = threading.Thread(target=drive)
-    cameraAccess = threading.Thread(target=camPreview,args=["front"])
+    global keyControl, cameraAccess
+    #keyControl = threading.Thread(target=drive)
+    #cameraAccess = threading.Thread(target=camPreview,args=[["front"]])
+    #rear_camera_view = threading.Thread(target=camPreview,args=["back"])
+    network = threading.Thread(target=get_wifi_networks)
     
     try:
         keyControl.start()
         cameraAccess.start()
+        network.start()
     except KeyboardInterrupt:
             myCar.terminate()
             # exitPygame
