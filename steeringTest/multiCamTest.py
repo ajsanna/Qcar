@@ -25,6 +25,9 @@ min_throttle = -0.075
 max_steering = 0.5
 min_steering = -0.5
 LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
+rear_cam = False
+right_cam = False
+left_cam = False
 
 steering = 0
 throttle = 0
@@ -37,6 +40,8 @@ camera_right = Camera2D(cameraId="0",frameWidth=420,frameHeight=220,frameRate=30
 camera_back = Camera2D(cameraId="1",frameWidth=420,frameHeight=220,frameRate=30)
 camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)
+
+
 
 def get_wifi_networks():
    while(True):
@@ -56,10 +61,9 @@ def drive():
     print("Driving Starting...")
     left_indicator = 0 
     right_indicator = 0
-    rear_cam = False
-    right_cam = False
-    left_cam = False
-    global throttle, steering, reverse, currentGear, speeds
+   
+    global throttle, steering, reverse, currentGear, speeds, rear_cam_view, rear_cam, left_cam, right_cam
+    
     
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('', PORT))
@@ -145,7 +149,29 @@ def drive():
                         max_throttle = speeds[currentGear]
                         reverse = False
                     elif float(buffer[2]) == 0:
-                        print("Rear Cam Flipped")
+                        print("A Pressed")
+                        if rear_cam == False: 
+                            rear_cam = True
+                            print("Rear Cam: ON")
+                            rear_cam_view.start()
+                            #rear_cam_view.join()
+                        # else: 
+                        #     rear_cam = False
+                        #     print("Rear Cam: OFF")
+                    elif float(buffer[2]) == 2:
+                        print("X Pressed")
+                        if left_cam == False: 
+                            left_cam = True
+                            print("Left Cam: ON")
+                            left_cam_view.start()
+                    elif float(buffer[2]) == 1:
+                        print("B Pressed")
+                        if right_cam == False: 
+                            right_cam = True
+                            print("Right Cam: ON")
+                            right_cam_view.start()
+                            
+                            
                     elif float(buffer[2]) == 11:
                         # Reverse Gear selected. 
                         print("Reverse Gear Selected")
@@ -186,8 +212,8 @@ def drive():
                         LEDs[6] = 1 if LEDs[6] == 0 else 0
                         LEDs[7] = 1 if LEDs[7] == 0 else 0
                         LEDs[4] = 1 if LEDs[4] == 0 else 0
-                    elif float(buffer[2]) == 1:
-                        print("Right Cam Flipped")
+                    # elif float(buffer[2]) == 1:
+                    #     print("Right Cam Flipped")
                        
                 if reverse:
                     if throttle > 0:
@@ -204,17 +230,33 @@ def drive():
     print("Terminated Driving")
     
 def camPreview(camIDs = ["front"]):
-
-    while True:
+    global rear_cam
+    running = True
+    while running:
+        # if "back" in camIDs and rear_cam == False: 
+        #     print("Breaking")
+        #     camera_back.terminate()
+        #     cv2.destroyWindow("Camera Back")
+        #     running = False
+        
         if "front" in camIDs:
             camera_front.read()
             if camera_front is not None:
                 #cv2.namedWindow("Camera Front", cv2.WINDOW_NORMAL)
                 #cv2.resizeWindow("Camera Front", 900, 900)
                 cv2.imshow("Camera Front", camera_front.imageData)
+        if "left" in camIDs:
+            camera_left.read()
+            if camera_left is not None:
+                cv2.imshow("Camera Left", camera_left.imageData)
+        if "right" in camIDs:
+            camera_right.read()
+            if camera_right is not None:
+                cv2.imshow("Camera Right", camera_right.imageData)
         if "back" in camIDs:
             camera_back.read()
             if camera_back is not None:
+                #print("image found")
                 cv2.imshow("Camera Back", camera_back.imageData)
         key = cv2.waitKey(100)
         if key == 27:  # exit on ESC
@@ -225,9 +267,13 @@ def camPreview(camIDs = ["front"]):
 
 keyControl = threading.Thread(target=drive)
 cameraAccess = threading.Thread(target=camPreview,args=[["front"]])
-
+left_cam_view = threading.Thread(target=camPreview,args=[["left"]])
+right_cam_view = threading.Thread(target=camPreview,args=[["right"]])
+rear_cam_view = threading.Thread(target=camPreview,args=[["back"]])
 
 def main():
+    import ctypes
+    ctypes.CDLL('libX11.so.6').XInitThreads()
     global keyControl, cameraAccess
     #keyControl = threading.Thread(target=drive)
     #cameraAccess = threading.Thread(target=camPreview,args=[["front"]])

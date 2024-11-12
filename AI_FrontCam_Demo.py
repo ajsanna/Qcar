@@ -42,7 +42,7 @@ def Drive():
     '''
         This is where you specify what model you would like to use. TFLITE recommended. 
     '''
-    driving_model = loadModel("Models/mtr_test.tflite")
+    driving_model = loadModel("Models/multitarget3.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
    
@@ -225,21 +225,25 @@ def Drive():
                 steering = 0
                 AUTONOMOUS_MODE = False
             else:
-                #throttle = .1
+                throttle = .1
                 image_cap_np = camPreview(camIDs=["front"])
                 image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY)
                 image_cap_grayscale = image_cap_grayscale[np.newaxis, np.newaxis,:,:] #should be shape 1,1,420,220
                 image_cap_grayscale = image_cap_grayscale.astype('float32')
                 driving_model.set_tensor(input_details[0]['index'], image_cap_grayscale)
                 driving_model.invoke()
-                predicted_steering = driving_model.get_tensor(output_details[0]['index'])
-                print(predicted_steering)
-                if predicted_steering[0][0] >= -.5 and predicted_steering[0][0] <= .5:
-                    steering = predicted_steering[0][0] * 1.0
-                if predicted_steering[0][1] <= 0.2 and predicted_steering[0][1] >= -0.2:
-                    throttle = predicted_steering[0][1] * 1.0
+                prediction = driving_model.get_tensor(output_details[0]['index'])
+                #print(prediction)
+                if prediction[0][0] >= -.5 and prediction[0][0] <= .5:
+                    steering = prediction[0][0] * 1.0
+                if prediction[0][1] <= 0.2 and prediction[0][1] >= -0.2:
+                    throttle = prediction[0][1] * 1.0
 
         # update qcar control
+        #print("Throttle: " + str(throttle) + " __ Steering: " + str(steering))
+        LEDs[6] = 1 
+        LEDs[7] = 1 
+        LEDs[4] = 1 
         myCar.read_write_std(throttle=throttle, steering=steering, LEDs = LEDs)
 
 
