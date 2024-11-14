@@ -42,7 +42,7 @@ def Drive():
     '''
         This is where you specify what model you would like to use. TFLITE recommended. 
     '''
-    driving_model = loadModel("Models/multitarget3.tflite")
+    driving_model = loadModel("Models/multi_target4.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
    

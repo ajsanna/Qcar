@@ -1,8 +1,3 @@
-
-
-
-
-
 import argparse
 from pal.utilities.vision import Camera2D
 from pal.products.qcar import QCarRealSense
@@ -32,14 +27,15 @@ LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
 
 steering = 0
 throttle = 0
+image_skipper = 0
 reverse = False
 
-PORT = 38821  # Port to listen on (non-privileged ports are > 1023)
+PORT = 38822  # Port to listen on (non-privileged ports are > 1023)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30) 
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # Create the full path for the new folder
-path = "/media/378B-14FD/Collected_Images/"
+path = "/media/SANDISK1/Images"
 full_folder_path = os.path.join(path, folder_name)
 os.makedirs(full_folder_path)  
 
@@ -51,158 +47,168 @@ def drive():
     tracker = open(r"index_tracker.txt", "r")
     global_index = tracker.read()
     global_index = int(global_index)
-    image_skipper = 0
     global_count = global_index
     print("starting index: " + str(global_index))
     tracker.close()
     
-    global throttle, steering, reverse
+    global throttle, steering, reverse, image_skipper
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('', PORT))
+        s.setblocking(False)
         global stopthread
 
         while True:
+            #print("ITERATION")
             if stopthread:
                 break
 
-            data = s.recvfrom(100)[0].decode('utf-8')
-            if not data:
-                pass
-
-            packet = payload.payload_handler(data)
-            buffer = []
             try:
-                '''
-                /*##################################################################################*/
-                /*|    Controller ID    |    Event    |    Event Dimension     |    Event Value    |*/
-                /*|        4 Bit        |    4 Bit    |         8 Bit          |       4 Bit       |*/
-                /*##################################################################################*/
-                '''
-                
-                '''
-                Read Payload Data
-                '''
-                if packet.read(buffer, 4) == -1 or \
-                   packet.read(buffer, 4) == -1 or \
-                   packet.read(buffer, 8) == -1 or \
-                   packet.read(buffer, 8) == -1:
-                    print("Warning: Packet Length Too short")
-                    continue
-                
-                event = int(buffer[1])
-                #print(event)
+                data = s.recvfrom(100)[0].decode('utf-8')
+                #print(data)
+                #print(data)
+                if not data:
+                    #print("NOT DATA")
+                    pass
 
-                if event == 1536:
-                    #IF Axis is Steering Wheel
-                    #print(float(buffer[2]))
-                    if float(buffer[2]) == 0:
-                        steer = (-1* float(buffer[3])) / 1.5
-                        if abs(steering - steer) < 0.05:
-                            continue
-
-                        if (steering == min_steering and steer < min_steering
-                            or
-                            steering == max_steering and steer > max_steering):
-                            continue
-
-                        if steer < 0:
-                            steering = max(steer, min_steering)
-                        else:
-                            steering = min(steer, max_steering)
-                        
-                    #IF Axis is Throttle
-                    elif float(buffer[2]) == 1:
-                        
-                        th = (float(buffer[3])) / 2 - 0.5
-                        throttle = th * max_throttle
+                packet = payload.payload_handler(data)
+                buffer = []
+                try:
+                    '''
+                    /*##################################################################################*/
+                    /*|    Controller ID    |    Event    |    Event Dimension     |    Event Value    |*/
+                    /*|        4 Bit        |    4 Bit    |         8 Bit          |       4 Bit       |*/
+                    /*##################################################################################*/
+                    '''
                     
-                    #IF Axis is Brake
-                    elif float(buffer[2]) == 2:
-                        continue 
-                        #Implement Brake algorithm
-
-                if event == 1539:
-                    #Sprint(float(buffer[2]))
-                    if float(buffer[2]) == 5:
-                        print("Reverse Triggered")
-                        reverse = True
-                    elif float(buffer[2]) == 4:
-                        print("Forward Triggered")
-                        reverse = False
-                    elif float(buffer[2]) == 0:
-                        steering = 0
-                        throttle = 0
-                        reverse = False
-                    elif float(buffer[2]) == 11:
-                        # Reverse Gear selected. 
-                        print("Reverse Gear Selected")
-                        min_throttle = -.075
-                        max_throttle = .075
-                        reverse = True
-                    elif float(buffer[2]) == 12:
-                        # First Gear Selected 
-                        print("1st Gear Selected")
-                        max_throttle = .075
-                        reverse = False
-                    elif float(buffer[2]) == 13:
-                        # First Gear Selected 
-                        print("2nd Gear Selected")
-                        max_throttle = .125
-                        reverse = False
-                    elif float(buffer[2]) == 14:
-                        # First Gear Selected 
-                        print("3rd Gear Selected")
-                        max_throttle = .2
-                        reverse = False
-                    elif float(buffer[2]) == 15:
-                        # First Gear Selected 
-                        print("4th Gear Selected")
-                        max_throttle = .225
-                        reverse = False
-                    elif float(buffer[2]) == 16:
-                        # First Gear Selected 
-                        print("5th Gear Selected")
-                        max_throttle = .3
-                        reverse = False
-                    elif float(buffer[2]) == 17:
-                        # First Gear Selected 
-                        print("6th Gear Selected")
-                        max_throttle = .35
-                        reverse = False
-                    elif float(buffer[2]) == 6:
-                        LEDs[6] = 1 if LEDs[6] == 0 else 0
-                        LEDs[7] = 1 if LEDs[7] == 0 else 0
-                        LEDs[4] = 1 if LEDs[4] == 0 else 0
-                        
-                    elif float(buffer[2]) == 10:
-                        print("Saving and shutting down.")
-                        catalog.close()
-                        tracker.close()
-                        print("index upon shutdown: " + str(global_count))
-                        tracker_update = open(r"index_tracker.txt", "w")
-                        tracker_update.write(str(global_count))
-                        tracker_update.close()
-                        #print("Shutting Down")
-                        exit(0)
-
-                if reverse:
-                    if throttle > 0:
-                        throttle *= -1
-                else:
-                    throttle = abs(throttle)
+                    '''
+                    Read Payload Data
+                    '''
+                    if packet.read(buffer, 4) == -1 or \
+                    packet.read(buffer, 4) == -1 or \
+                    packet.read(buffer, 8) == -1 or \
+                    packet.read(buffer, 8) == -1:
+                        print("Warning: Packet Length Too short")
+                        continue
                     
-                myCar.write(throttle=throttle, steering=steering, LEDs = LEDs)
-                if(throttle != 0):
+                    event = int(buffer[1])
+                    #print(event)
+
+                    if event == 1536:
+                        #IF Axis is Steering Wheel
+                        #print(float(buffer[2]))
+                        if float(buffer[2]) == 0:
+                            steer = (-1* float(buffer[3])) / 1.5
+                            if abs(steering - steer) < 0.05:
+                                continue
+
+                            if (steering == min_steering and steer < min_steering
+                                or
+                                steering == max_steering and steer > max_steering):
+                                continue
+
+                            if steer < 0:
+                                steering = max(steer, min_steering)
+                            else:
+                                steering = min(steer, max_steering)
+                            
+                        #IF Axis is Throttle
+                        elif float(buffer[2]) == 1:
+                            
+                            th = (float(buffer[3])) / 2 - 0.5
+                            throttle = th * max_throttle
+                        
+                        #IF Axis is Brake
+                        elif float(buffer[2]) == 2:
+                            continue 
+                            #Implement Brake algorithm
+
+                    if event == 1539:
+                        #Sprint(float(buffer[2]))
+                        if float(buffer[2]) == 5:
+                            print("Reverse Triggered")
+                            reverse = True
+                        elif float(buffer[2]) == 4:
+                            print("Forward Triggered")
+                            reverse = False
+                        elif float(buffer[2]) == 0:
+                            steering = 0
+                            throttle = 0
+                            reverse = False
+                        elif float(buffer[2]) == 11:
+                            # Reverse Gear selected. 
+                            print("Reverse Gear Selected")
+                            min_throttle = -.075
+                            max_throttle = .075
+                            reverse = True
+                        elif float(buffer[2]) == 12:
+                            # First Gear Selected 
+                            print("1st Gear Selected")
+                            max_throttle = .075
+                            reverse = False
+                        elif float(buffer[2]) == 13:
+                            # First Gear Selected 
+                            print("2nd Gear Selected")
+                            max_throttle = .125
+                            reverse = False
+                        elif float(buffer[2]) == 14:
+                            # First Gear Selected 
+                            print("3rd Gear Selected")
+                            max_throttle = .2
+                            reverse = False
+                        elif float(buffer[2]) == 15:
+                            # First Gear Selected 
+                            print("4th Gear Selected")
+                            max_throttle = .225
+                            reverse = False
+                        elif float(buffer[2]) == 16:
+                            # First Gear Selected 
+                            print("5th Gear Selected")
+                            max_throttle = .3
+                            reverse = False
+                        elif float(buffer[2]) == 17:
+                            # First Gear Selected 
+                            print("6th Gear Selected")
+                            max_throttle = .35
+                            reverse = False
+                        elif float(buffer[2]) == 6:
+                            LEDs[6] = 1 if LEDs[6] == 0 else 0
+                            LEDs[7] = 1 if LEDs[7] == 0 else 0
+                            LEDs[4] = 1 if LEDs[4] == 0 else 0
+                            
+                        elif float(buffer[2]) == 10:
+                            print("Saving and shutting down.")
+                            catalog.close()
+                            tracker.close()
+                            print("index upon shutdown: " + str(global_count))
+                            tracker_update = open(r"index_tracker.txt", "w")
+                            tracker_update.write(str(global_count))
+                            tracker_update.close()
+                            #print("Shutting Down")
+                            exit(0)
+
+                    if reverse:
+                        if throttle > 0:
+                            throttle *= -1
+                    else:
+                        throttle = abs(throttle)
+                        
+                    myCar.write(throttle=throttle, steering=steering, LEDs = LEDs)
+                    if throttle != 0 and image_skipper % 5000 ==0:
+                        camPreview(["front"], global_count, steering, throttle, catalog)
+                        global_count = global_count+1
+                        
+                    image_skipper += 1
+                    
+                        
+
+                except Exception as e:
+                    print("Invalid Packet Size")
+                    print(e)
+            except Exception as E:
+                if throttle != 0  and image_skipper % 5000 ==0:
                     camPreview(["front"], global_count, steering, throttle, catalog)
                     global_count = global_count+1
-                    
-                image_skipper += 1
-                
-                    
-
-            except Exception as e:
-                print("Invalid Packet Size")
-                print(e)
+                image_skipper +=1
 
     print("Terminated Driving")
     

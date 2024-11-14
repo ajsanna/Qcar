@@ -32,7 +32,7 @@ currentGear = 1
 speeds = [0, .075, .125, .2, .225, .3, .35]
 reverse = False
 
-PORT = 38821  # Port to listen on (non-privileged ports are > 1023)
+PORT = 38822  # Port to listen on (non-privileged ports are > 1023)
 camera_right = Camera2D(cameraId="0",frameWidth=420,frameHeight=220,frameRate=30)
 camera_back = Camera2D(cameraId="1",frameWidth=420,frameHeight=220,frameRate=30)
 camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)

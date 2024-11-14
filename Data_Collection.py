@@ -83,7 +83,9 @@ def Drive():
         # t = time.time()
 
         #listen for pygame Events in the event queue
+        #print("while iteration")
         for event in pygame.event.get():
+            #print("Event Detected")
             #if the window is closed, shut the car off
             if event.type == pygame.QUIT:
                 catalog.close()
