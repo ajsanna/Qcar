@@ -50,7 +50,7 @@ def Drive():
     deceleration_increment = .00001
     throttle_increment = 0.005
     steering_increment = 0.005
-    max_throttle = 0.1
+    max_throttle = 0.075
     min_throttle = -0.1
     max_steering = 0.5
     min_steering = -0.5
@@ -214,13 +214,13 @@ def Drive():
         
         
         myCar.read_write_std(throttle=throttle, steering=steering, LEDs = LEDs)
-        if(throttle != 0 and image_skipper % 5 == 0):
+        if(throttle != 0 and image_skipper % 10 == 0):
           camPreview(["front"], global_index, steering, throttle, catalog)
           global_index += 1
           
-        if(throttle != 0 and image_skipper % 20 == 0 and depth_image):
+        '''if(throttle != 0 and image_skipper % 20 == 0 and depth_image):
           camPreview(["front", "depth"], global_index, steering, throttle, catalog)
-          global_index += 1
+          global_index += 1'''
   
         '''
         # update qcar control
@@ -312,7 +312,7 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
         
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 # Create the full path for the new folder
-path = "/media/378B-14FD/Collected_Images/"
+path = "/media/SANDISK1/Images/"
 full_folder_path = os.path.join(path, folder_name)
 os.makedirs(full_folder_path)  
 

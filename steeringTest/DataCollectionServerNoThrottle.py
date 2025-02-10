@@ -1,105 +1,57 @@
-# ===========================================================================================================
-# File: DataCollectionServer.py
-# ===========================================================================================================
-# Project: Quanser Car "Class Hopper"
-# Contributers: Alex Sanna, Matthew Baldivino, Reyna Nava
-# Last Update: 02/06/2025 (by Reyna)
-#  
-# Description:
-#   Run a QCar drive session to recieve images from QCar camera's and the respective steering and throttle
-#   values.  
-# Notes:
-#   utilizes a UDP (utf-8) socket to recieve data packets from the QCAR
-#   image_skipper: Controls the frequency of image collection
-#   image_catalogs.txt: logs the image file names
-#   index_tracker: logs the last image # collected
-# ===========================================================================================================
-
-# QCAR
+import argparse
 from pal.utilities.vision import Camera2D
 from pal.products.qcar import QCarRealSense
-from pal.products.qcar import QCar, QCarRealSense
-
-# OS tasks + threading + communication
-import os
 import threading
 import sys
-import argparse
 import socket
-import payload
-
-# image pre-processing
+import os
 from datetime import datetime
 import numpy as np
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
+
 import cv2
+from pal.products.qcar import QCar, QCarRealSense
 
-# globals
-PORT = 38822  # Port to listen on (non-privileged ports are > 1023)
+import payload
 
-# initial QCAR variables
+stopthread = False
+
+myCar = QCar(readMode=0)
+
 max_throttle = 0.2
 min_throttle = -0.2
 max_steering = 0.5
 min_steering = -0.5
 LEDs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
+
 steering = 0
 throttle = 0
 image_skipper = 0
 reverse = False
-stopthread = False
 
-
-# setup + validate camera setup
-CAMERA_FRONT = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)
-if CAMERA_FRONT is None:
-    print("Error setting up camera front")
-    exit()
-
-# supress tensorflow log noise
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
-
-# create an instance of qcar
-myCar = QCar(readMode=0)
-
-# folder setup
+PORT = 38822  # Port to listen on (non-privileged ports are > 1023)
+camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30) 
 folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Create the full path for the new folder
 path = "/media/SANDISK1/Images"
 full_folder_path = os.path.join(path, folder_name)
 os.makedirs(full_folder_path)  
 
-
-# = drive ===================================================================================================
-# Description:
-#   Start a socket connection with QCAR, verify data packets and write to the image_catalogs file to write
-#   throttle and steering values
-#
-# Requires:
-#   camPreview()
-#
-# Notes:
-#   Handles Events from the TrueForce Steering Wheel, Throttle, Brake and shift knob gears 1-6
-#   Error handling of packet size
-#   Implements image skipping
-#   Keeps track of image #
-#
-# Improvement Notes:
-#   Brake Algorithm not implemented
-# ===========================================================================================================
 def drive():
-
     print("Driving Starting...")
-    global throttle, steering, reverse, image_skipper
-
+    
      #file management for memory purposes
-    catalog = open(r"images_catalogs.txt", "a")
-    tracker = open(r"index_tracker.txt", "r")
+    catalog = open(r"images_catalogs_no_throttle.txt", "a")
+    tracker = open(r"index_tracker_no_throttle.txt", "r")
     global_index = tracker.read()
     global_index = int(global_index)
     global_count = global_index
     print("starting index: " + str(global_index))
     tracker.close()
     
-    # setup socket connection
+    global throttle, steering, reverse, image_skipper
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('', PORT))
         s.setblocking(False)
@@ -112,6 +64,7 @@ def drive():
 
             try:
                 data = s.recvfrom(100)[0].decode('utf-8')
+                #print(data)
                 #print(data)
                 if not data:
                     #print("NOT DATA")
@@ -127,7 +80,9 @@ def drive():
                     /*##################################################################################*/
                     '''
                     
-                    # Read Payload Data
+                    '''
+                    Read Payload Data
+                    '''
                     if packet.read(buffer, 4) == -1 or \
                     packet.read(buffer, 4) == -1 or \
                     packet.read(buffer, 8) == -1 or \
@@ -169,42 +124,49 @@ def drive():
 
                     if event == 1539:
                         #Sprint(float(buffer[2]))
-                        if float(buffer[2]) == 5:           # Reverse Trigger
+                        if float(buffer[2]) == 5:
                             print("Reverse Triggered")
                             reverse = True
                         elif float(buffer[2]) == 4:
-                            print("Forward Triggered")      # Forward Trigger
+                            print("Forward Triggered")
                             reverse = False
-                        elif float(buffer[2]) == 0:         # Neutral
+                        elif float(buffer[2]) == 0:
                             steering = 0
-                            throttle = 0  
+                            throttle = 0
                             reverse = False
-                        elif float(buffer[2]) == 11:        # Reverse Gear
+                        elif float(buffer[2]) == 11:
+                            # Reverse Gear selected. 
                             print("Reverse Gear Selected")
                             min_throttle = -.075
                             max_throttle = .075
                             reverse = True
-                        elif float(buffer[2]) == 12:        # First Gear
+                        elif float(buffer[2]) == 12:
+                            # First Gear Selected 
                             print("1st Gear Selected")
                             max_throttle = .075
                             reverse = False
-                        elif float(buffer[2]) == 13:        # Second Gear
+                        elif float(buffer[2]) == 13:
+                            # First Gear Selected 
                             print("2nd Gear Selected")
                             max_throttle = .125
                             reverse = False
-                        elif float(buffer[2]) == 14:        # Third Gear
+                        elif float(buffer[2]) == 14:
+                            # First Gear Selected 
                             print("3rd Gear Selected")
                             max_throttle = .2
                             reverse = False
-                        elif float(buffer[2]) == 15:        # Fourth Gear
+                        elif float(buffer[2]) == 15:
+                            # First Gear Selected 
                             print("4th Gear Selected")
                             max_throttle = .225
                             reverse = False
-                        elif float(buffer[2]) == 16:        # Fifth Gear
+                        elif float(buffer[2]) == 16:
+                            # First Gear Selected 
                             print("5th Gear Selected")
                             max_throttle = .3
                             reverse = False
-                        elif float(buffer[2]) == 17:        # Sixth Gear
+                        elif float(buffer[2]) == 17:
+                            # First Gear Selected 
                             print("6th Gear Selected")
                             max_throttle = .35
                             reverse = False
@@ -218,9 +180,10 @@ def drive():
                             catalog.close()
                             tracker.close()
                             print("index upon shutdown: " + str(global_count))
-                            tracker_update = open(r"index_tracker.txt", "w")
+                            tracker_update = open(r"index_tracker_no_throttle.txt", "w")
                             tracker_update.write(str(global_count))
                             tracker_update.close()
+                            #print("Shutting Down")
                             exit(0)
 
                     if reverse:
@@ -230,12 +193,14 @@ def drive():
                         throttle = abs(throttle)
                         
                     myCar.write(throttle=throttle, steering=steering, LEDs = LEDs)
-                    if throttle != 0 and image_skipper % 5000 == 0:
+                    if throttle != 0 and image_skipper % 5000 ==0:
                         camPreview(["front"], global_count, steering, throttle, catalog)
                         global_count = global_count+1
                         
                     image_skipper += 1
-                
+                    
+                        
+
                 except Exception as e:
                     print("Invalid Packet Size")
                     print(e)
@@ -248,34 +213,24 @@ def drive():
     print("Terminated Driving")
     
     
-# = camPreview  =============================================================================================
-# Description:
-#  
-#
-# Requires:
-#   snapshot()
-#  
-# Notes:
-#  snapshot() responsible for pre-processing the data using lane_detection
-#   
-#
-# ===========================================================================================================
+    
 def camPreview(camIDs, global_count, steering, throttle, catalog):
     if int(global_count) >= 0:
         data = str(global_count) + ", "
-
         if "front" in camIDs:
-            CAMERA_FRONT.read()
-            if CAMERA_FRONT.imageData is not None:
+            camera_front.read()
+            if camera_front is not None:
+                #detect_lanes(camera_front.imageData)
+                #cv2.imshow("Camera Front", camera_front.imageData)
+
                 #snapshot function will take a picture
-                snapshot(CAMERA_FRONT.imageData, global_count)
-                img_name = 'sample_{}.jpg'.format(str(global_count))
+                snapshot(camera_front.imageData, global_count)
+                img_name = 'sample_' + str(global_count) + '.jpg'
                 #data = str(global_count) + ", " + img_name + ", " + str(steering) + ", " + str(throttle) + "\n"
                 data += (img_name + ", ")
                 #print(data)
                 #catalog.write(data)
                 #global_count+=1
-
         if "back" in camIDs:
             camera_back.read()
             if camera_back is not None:
@@ -307,60 +262,17 @@ def camPreview(camIDs, global_count, steering, throttle, catalog):
                 path = "/media/378B-14FD/Depth_Images/"
                 np.save(os.path.join(path, img_name), arr_image)
        
+          
+        
         #write to catalog
         if 'depth' not in camIDs:
           data += "None, "        
-        data += (str(steering) + ", " + str(throttle) + "\n")
+        # data += (str(steering) + ", " + str(throttle) + "\n")
+        data += (str(steering) + "\n")
         print(data)
         catalog.write(data)
         global_count += 1
-
-
         
-# = snapshot ================================================================================================
-# Description:
-#     
-#
-# Requires:
-#   identify_lane() 
-#   imageData = 
-#   global count = number representing the image id
-# Notes:
-#  
-#  
-# Other:
-#    grayscale: cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#
-# ===========================================================================================================
-def snapshot(imageData, global_count):
- 
-    # enforce color image
-    #img = cv2.cvtColor(imageData,cv2.COLOR_BGR2RGB)
-    img = imageData
-    # pre-process the image
-    # uncomment this to do preprocessing in real time
-    #img = identify_lane(img)
-
-    # Create the new folder
-
-    #write the image to the file at path specified above
-    img_name = 'sample_{}.jpg'.format(str(global_count)) 
-    print("Saving Image")
-    cv2.imwrite(os.path.join(full_folder_path, img_name), img)
-
-# = identify_lane ===========================================================================================
-# Description:
-#  
-#
-# Requires:
-#   
-# Notes:
-#  
-#  
-# Improvement Notes:
-#   
-#
-# ===========================================================================================================      
 def identify_lane(frame):
 
     # remove the QCAR bumper from view
@@ -376,7 +288,7 @@ def identify_lane(frame):
     #cv2.fillPoly(mask,[poly_shape],(255))
     #cv2.fillPoly(mask,ellipse,(255))
 
-    # return frame 
+    #return frame 
     # take img hsv color space
     hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     
@@ -403,6 +315,23 @@ def identify_lane(frame):
     #gray_scaled = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
     
     return frame
+        
+def snapshot(image, global_count):
+    #processed_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Create the new folder
+    img = identify_lane(image)
+    
+    # uncomment for raw images: 
+    #img = image
+    
+
+    img_name = 'sample_' + str(global_count) + '.jpg'
+
+    #write the image to the file at path specified above
+    print("Saving Image")
+    cv2.imwrite(os.path.join(full_folder_path, img_name), img)
+
 
 def main():
   drive()

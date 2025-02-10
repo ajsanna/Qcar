@@ -1,3 +1,4 @@
+
 '''
 This program is able to take input from a front facing camera, 
 send said data to a predefined model and implement a result from said model. 
@@ -42,7 +43,7 @@ def Drive():
     '''
         This is where you specify what model you would like to use. TFLITE recommended. 
     '''
-    driving_model = loadModel("feb10-2.tflite")
+    driving_model = loadModel("Models/multi_target5.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
    
@@ -225,55 +226,79 @@ def Drive():
                 steering = 0
                 AUTONOMOUS_MODE = False
             else:
-                throttle = .075
+                throttle = .07
                 image_cap_np = camPreview(camIDs=["front"])
-                image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY)
-                image_cap_grayscale = image_cap_grayscale[np.newaxis, np.newaxis,:,:] #should be shape 1,1,420,220
+                img = image_cap_np[120:]
+                can_img = cv2.Canny(img, 100,200)
+                img[can_img == 255] = (255,0, 0)
+                image_cap_grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                image_cap_grayscale = image_cap_grayscale[np.newaxis, np.newaxis,:,:] #should be shape 1,1,100,220
                 image_cap_grayscale = image_cap_grayscale.astype('float32')
                 driving_model.set_tensor(input_details[0]['index'], image_cap_grayscale)
                 driving_model.invoke()
-                predictions = driving_model.get_tensor(output_details[0]['index'])
-                steering_classes = [-0.5, -.4375, -.375, -.3125, -.25, -.1875, -.125, -.0625, 0, .0625, .125, .1875, .25, .3125, .375, .4375, 0.5]
-                if predictions[0] > 0:
-                    if predictions[0] > .25:
-                        difference = 1000
-                        correct_class = 0
-                        for classes in steering_classes[13:]:
-                            if abs(predictions[0] - classes) < difference:
-                                difference = abs(predictions[0] - classes)
-                                correct_class = classes
-                            predictions[0] = correct_class
-                    else:
-                        difference = 1000
-                        correct_class = 0
-                        for classes in steering_classes[9:13]:
-                            if abs(predictions[0] - classes) < difference:
-                                difference = abs(predictions[0] - classes)
-                                correct_class = classes
-                            predictions[0] = correct_class
-                elif predictions[0] < 0:
-                    if predictions[0] < -.25:
-                        difference = 1000
-                        correct_class = 0
-                        for classes in steering_classes[:4]:
-                            if abs(predictions[0] - classes) < difference:
-                                difference = abs(predictions[0] - classes)
-                                correct_class = classes
-                            predictions[0] = correct_class
-                    else:
-                        difference = 1000
-                        correct_class = 0
-                        for classes in steering_classes[4:9]:
-                            if abs(predictions[0] - classes) < difference:
-                                difference = abs(predictions[0] - classes)
-                                correct_class = classes
-                            predictions[0] = correct_class
-                else:
-                    continue
+                prediction = driving_model.get_tensor(output_details[0]['index'])
                 #print(prediction)
-                if predictions[0] >= -.5 and predictions[0] <= .5:
-                    steering = predictions[0] * 1.0
-                    throttle = 0.075
+                
+                #Checking if the prediciton is within the -.5 and .5 values, then updating steering to that value
+               '''
+                 Right is -0.5
+                 Left is 0.5
+               '''
+               '''
+                  Here we can add the logic for the thresholds of the steering values
+                  Case 0: value > -0.05 and value < 0.05
+                          steering set to 0
+                  Case 1: value > 0.05 and value < 0.11 then
+                          steeing set to .1
+                  Case 2: value > .1 and value < .21 
+                          steering set to .2
+                  Case 3: value > .2 and value < .31
+                          steering set to .3
+                  Case 4: value > .3 and value < .41
+                      Steering set to .4
+                  Case 5: value >.4 and value <= .5
+                        Steering set to .5
+                        
+                  Case 6: value < -0.05 and value >= -.11
+                      steering set to -.1
+                  Case 7: value < -.1 and value > -.21
+                    steering set to -.2
+                  Case 8: value < -.2 and value > -.31
+                    steering set to -.3
+                  Case 9: value < .-3 and value > -.41
+                    steering set to -.4
+                  Case 10: value < -.4 and value >= -.5
+                    steering set to -.5
+                
+               '''
+                if prediction[0][0] >= -.5 and prediction[0][0] <= .5:
+                    #steering = prediction[0][0] * 1.0
+                    if prediciton[0][0] > .05 and prediciton[0][0] < .11:
+                          steering = .1
+                    elif prediciton[0][0] > .1 and prediciton[0][0] < .21:
+                          steering = .2
+                    elif prediciton[0][0] > .2 and prediciton[0][0] < .31:
+                          steering = .3
+                    elif prediciton[0][0] > .3 and prediciton[0][0] < .41:
+                          steering = .4
+                    elif prediciton[0][0] > .4 and prediciton[0][0] <= .5:
+                          steering = .5
+                    elif prediciton[0][0] < -.05 and prediciton[0][0] >= -.11:
+                          steering = -.1
+                    elif prediciton[0][0] < -.1 and prediciton[0][0] >= -.21:
+                          steering = -.2
+                    elif prediciton[0][0] < -.2 and prediciton[0][0] >= -.31:
+                          steering = -.3
+                    elif prediciton[0][0] < -.3 and prediciton[0][0] >= -.41:
+                          steering = -.4
+                    elif prediciton[0][0] < -.4 and prediciton[0][0] >= -.5:
+                          steering = -.5
+                    else:
+                        steering = 0
+                    
+                
+                # if prediction[0][1] <= 0.2 and prediction[0][1] >= -0.2:
+                #     throttle = prediction[0][1] * 1.1
 
         # update qcar control
         #print("Throttle: " + str(throttle) + " __ Steering: " + str(steering))

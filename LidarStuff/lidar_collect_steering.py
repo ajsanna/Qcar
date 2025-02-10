@@ -223,16 +223,16 @@ def main():
     try:
         # Threads for driving, camera, and LiDAR
         drive_thread = threading.Thread(target=drive)
-        cam_thread = threading.Thread(target=camPreview)
+        # cam_thread = threading.Thread(target=camPreview)
         lidar_thread = threading.Thread(target=lidar_collection)
 
         drive_thread.start()
-        cam_thread.start()
+        # cam_thread.start()
         lidar_thread.start()
 
         # Wait for threads to complete
         drive_thread.join()
-        cam_thread.join()
+        # cam_thread.join()
         lidar_thread.join()
     except KeyboardInterrupt:
         stop_threads = True

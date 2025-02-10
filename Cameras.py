@@ -57,14 +57,57 @@ camera_left = Camera2D(cameraId="2",frameWidth=420,frameHeight=220,frameRate=30)
 camera_front = Camera2D(cameraId="3",frameWidth=420,frameHeight=220,frameRate=30)
 depth_cam = QCarRealSense()      
 
+def identify_lane(frame):
+
+    # remove the QCAR bumper from view
+    height, width = frame.shape[:2]
+    cropped_height = int(height*0.85)
+    frame = frame[:cropped_height,:]
+
+    # store image size
+    height, width = frame.shape[:2]
+
+    # crop the field of view
+    #poly_shape = np.array([(0,height),(int(width*0.5),0),(int(width*0.5),0),(width,height),],dtype=np.int32)
+    #cv2.fillPoly(mask,[poly_shape],(255))
+    #cv2.fillPoly(mask,ellipse,(255))
+
+    #return frame 
+    # take img hsv color space
+    hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    # lane color range (orange)
+    opaque_orange = np.array([255,204,204])
+    saturated_orange = np.array([153,76,0])
+    
+    # saturate the lane color
+    orange_mask = cv2.inRange(hsv_image,opaque_orange,saturated_orange)
+    orange_region = cv2.bitwise_and(frame,frame,mask=orange_mask)
+    hsv_image[:,:,1] = np.clip(hsv_image[:,:,1]*1.25,0,255)
+    hsv_image[:,:,2] = np.clip(hsv_image[:,:,2]*1.25,0,255)
+
+    # convert back 
+    saturated_frame = cv2.cvtColor(hsv_image,cv2.COLOR_HSV2BGR)
+    
+    # blurr the background + apply edge detection
+    blurred_image = cv2.GaussianBlur(saturated_frame,(3,3),1.5)
+    edges = cv2.Canny(blurred_image,50,150)
+    mask = np.zeros((height,width),dtype=np.uint8)
+    ellipse = cv2.ellipse(mask,(width//2,height -50),(int(width//2),int(height//4)),0,0,360,255, -20)
+    frame = cv2.bitwise_and(edges,edges,mask=mask)
+
+    #gray_scaled = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    
+    return frame
+
 def camPreview(camIDs):
 
     while True:
         if "front" in camIDs:
             camera_front.read()
             if camera_front is not None:
-                detect_lanes(camera_front.imageData)
-                cv2.imshow("Camera Front", camera_front.imageData)
+                img = identify_lane(camera_front.imageData)
+                cv2.imshow("Camera Front", img)
         if "back" in camIDs:
             camera_back.read()
             if camera_back is not None:
