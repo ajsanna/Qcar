@@ -20,22 +20,10 @@ lidar_device = Lidar(type='RPLidar')
 
 # Control variables
 steering = 0.0
-throttle = 0.0  # Ensure movement starts
+throttle = 0.07  # Ensure movement starts
 stop_threads = False
 avoid_obstacles = True
 
-'''
-Algorithm for LiDar object avoidance
-
-Richwei Chea, Joseph Bui, Sebastian Cursaro
-
-Constant throttle for right now
-When an object is detected within the left and/or right angle scopes
-the car should turn to the opposite direction of the detected object
-
-STILL IN DEVELOPMENT
-
-'''
 def lidar_avoidance(): 
     """ LiDAR-based obstacle avoidance """
     global throttle, steering, stop_threads
@@ -43,105 +31,70 @@ def lidar_avoidance():
     print("Lidar initialized...")  
 
     while not stop_threads: 
-        print("\n--- Loop Start ---")  
         lidar_device.read()
 
+        # Check if LiDAR data is valid
         if lidar_device.distances is None or lidar_device.angles is None or lidar_device.distances.size == 0:
             print("LiDAR data is empty! Skipping iteration.")
             continue  
 
-        front_view = (lidar_device.angles >= 345) | (lidar_device.angles <= 15)
-        front_distances = lidar_device.distances[front_view]
+        # Define front view (angles between 60° and 120°)
+        front_view = (lidar_device.angles >= np.deg2rad(60)) & (lidar_device.angles <= np.deg2rad(120))
+        front_distances = lidar_device.distances[np.nonzero(front_view)]
 
-        '''commenting out for debugging - Bass'''
-        #print(f"Front distances: {front_distances}")  
-
-        print("Angles:", lidar_device.angles)
-
-
-        danger_threshold = 0.25
-        if np.any(front_distances < danger_threshold):
+        # Danger threshold for obstacle detection
+        danger_threshold = 0.7
+        print(f"Front distances: {front_distances} | Danger threshold: {danger_threshold}")
+       
+        # Check if there's any obstacle within the danger threshold
+        if np.any(front_distances[front_distances > 0] < danger_threshold):
             print("Obstacle detected! Adjusting steering...")
 
-            
-            # Shouldn't this be 0-90 for right and 90-180 for left side?
+            # Define left and right views (angles for obstacle detection)
             left_view = (lidar_device.angles >= np.deg2rad(15)) & (lidar_device.angles <= np.deg2rad(90))
             right_view = (lidar_device.angles >= np.deg2rad(270)) & (lidar_device.angles <= np.deg2rad(345))
-            
-            #left_view = (lidar_device.angles >= np.deg2rad(0)) & (lidar_device.angles < np.deg2rad(90))
-            #right_view = (lidar_device.angles > np.deg2rad(90)) & (lidar_device.angles <= np.deg2rad(180))
 
-            #added for Bass debugging
-            #Stores boolean values if object is detected. Notice how some are FALSE and some are TRUE
-            #It is where the specified radians are 15-90 and 270-345, those return TRUE
-            
-            
-            #print("Left view indices: \n", left_view)
-            #print("Right view indices: \n", right_view)
-
-
-            # Filter out NaN values and check if there are valid distances
+            # Get distances for left and right views
             left_distances = lidar_device.distances[left_view]
             right_distances = lidar_device.distances[right_view]
 
-            # Exclude NaN values from the distances
+            # Remove NaN values
             left_distances = left_distances[~np.isnan(left_distances)]
             right_distances = right_distances[~np.isnan(right_distances)]
 
-            # Compute mean only if there are valid distances
+            # Compute average distance for left and right
             left_clearance = np.nanmean(left_distances) if left_distances.size > 0 else np.inf
             right_clearance = np.nanmean(right_distances) if right_distances.size > 0 else np.inf
 
             print(f"Left Clearance: {left_clearance}, Right Clearance: {right_clearance}")
 
-
+            # Adjust steering based on clearance comparison
             if left_clearance > right_clearance + 0.1:
-                new_steering = max_steering * 1 # Steer left
-                if np.any(front_distances < danger_threshold):
-                    new_steering = correctSteering(new_steering)
-                    print(f"New Sigma:  {new_steering}")
+                new_steering = max_steering  # Steer left
+                throttle = 0.06
             elif right_clearance > left_clearance + 0.1:
-                new_steering = min_steering * 1 # Steer right.
-                if np.any(front_distances < danger_threshold):
-                    new_steering = correctSteering(new_steering)
-                    print(f"New Sigma:  {new_steering}")
-                    
+                new_steering = min_steering  # Steer right
+                throttle = 0.06
             else:
-                new_steering = 0.0 # Go straight       
-            
+                new_steering = 0.0  # Go straight
         else:
             new_steering = 0.0
-            
-    
-        # ? **Ensure steering update happens every loop**
-        steering = 0.7 * steering + 0.3 * new_steering
-        print(f"Throttle: {throttle}, Steering: {steering}")  
 
-        # ? **Ensure car writes on every loop iteration**
+        # Smooth steering adjustment
+        steering = 0.7 * steering + 0.3 * new_steering
+        print(f"Throttle: {throttle}, Steering: {steering}")
+
+        # Apply control commands to the car
         myCar.write(throttle=throttle, steering=steering, LEDs=LEDs)
         time.sleep(0.1)
-        
-        
-        
-        
-        
-def  correctSteering(steering):
-    if(steering > 0):
-        print(f"Corrected Steer: {steering}" )
-        return steering * -1
-    elif(steering < 0):
-        print(f"Corrected Steer: {steering}" )
-        return steering * -1
-    else:
-        print(f"Corrected Steer: {steering}" )
-        return 0
 
-    
-    
-    
-    
-    
-    
+def correctSteering(steering):
+    """ Corrects steering values if needed (for testing) """
+    if steering != 0:
+        print(f"Corrected Steer: {steering}")
+        return steering * -1
+    return 0
+
 def main():
     global stop_threads
     drive_thread = threading.Thread(target=lidar_avoidance if avoid_obstacles else drive_straight)
