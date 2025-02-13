@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from lidar2 import Lidar
 
 # Open the catalog file for writing
-catalog = open("lidar_catalogs2.txt", "w")
-catalog.write("Count, Angles, Distances\n")
+#catalog = open("lidar_catalogs2.txt", "w")
+#catalog.write("Count, Angles, Distances\n")
 
 # Initialize parameters
 runTime = 5.0  # Duration to run the LiDAR reading
@@ -22,7 +22,7 @@ global_count = [0]  # Use a list to hold the count
 def lidar(global_count, angles, distances, catalog): 
     if distances is not None and angles is not None: 
         data = f"{global_count[0]}, {angles.tolist()}, {distances.tolist()}\n"
-        catalog.write(data)
+        #catalog.write(data)
         global_count[0] += 1  # Increment the count
 
 # Set up the polar plot
