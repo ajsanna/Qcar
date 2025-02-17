@@ -28,6 +28,12 @@ def lidar_avoidance():
     """ LiDAR-based obstacle avoidance """
     global throttle, steering, stop_threads
     
+    #sttering values to track the steering adjustment before and after avoidance
+    last_steering_adjustment = 0.0
+    original_path_steer =0.0
+    
+    
+    
     print("Lidar initialized...")  
 
     while not stop_threads: 
@@ -43,16 +49,15 @@ def lidar_avoidance():
         front_distances = lidar_device.distances[np.nonzero(front_view)]
 
         # Danger threshold for obstacle detection
-        danger_threshold = 0.7
-        print(f"Front distances: {front_distances} | Danger threshold: {danger_threshold}")
+        danger_threshold = 0.65
+        #print(f"Front distances: {front_distances} | Danger threshold: {danger_threshold}")
        
         # Check if there's any obstacle within the danger threshold
         if np.any(front_distances[front_distances > 0] < danger_threshold):
-            print("Obstacle detected! Adjusting steering...")
-
+            
             # Define left and right views (angles for obstacle detection)
-            left_view = (lidar_device.angles >= np.deg2rad(15)) & (lidar_device.angles <= np.deg2rad(90))
-            right_view = (lidar_device.angles >= np.deg2rad(270)) & (lidar_device.angles <= np.deg2rad(345))
+            left_view = (lidar_device.angles >= np.deg2rad(60)) & (lidar_device.angles <= np.deg2rad(90))
+            right_view = (lidar_device.angles >= np.deg2rad(90)) & (lidar_device.angles <= np.deg2rad(120))
 
             # Get distances for left and right views
             left_distances = lidar_device.distances[left_view]
@@ -69,6 +74,7 @@ def lidar_avoidance():
             print(f"Left Clearance: {left_clearance}, Right Clearance: {right_clearance}")
 
             # Adjust steering based on clearance comparison
+            print("Obstacle detected! Adjusting steering...")
             if left_clearance > right_clearance + 0.1:
                 new_steering = max_steering  # Steer left
                 throttle = 0.06
@@ -77,8 +83,15 @@ def lidar_avoidance():
                 throttle = 0.06
             else:
                 new_steering = 0.0  # Go straight
+                throttle = 0.07
         else:
-            new_steering = 0.0
+            a = 0.0
+            
+            
+        # If car had deviated away from the path, we need to correct it here - Bass
+            #I tried soemthing but it did not work lmao, so I deleted it all
+            # Might have been too computationally expensive for the car, it stopped driving lmao
+        
 
         # Smooth steering adjustment
         steering = 0.7 * steering + 0.3 * new_steering
@@ -87,13 +100,26 @@ def lidar_avoidance():
         # Apply control commands to the car
         myCar.write(throttle=throttle, steering=steering, LEDs=LEDs)
         time.sleep(0.1)
+        
+def drive_straight():
+    """ Corrects steering values if needed (for testing) """
+    global throttle, steering
+    
+    if steering != 0:
+        print(f"Corrected Steer: {steering}")
+        steering = steering * -1
+    myCar.write(throttle=throttle, steering=steering, LEDs=LEDs)
 
 def correctSteering(steering):
     """ Corrects steering values if needed (for testing) """
+    correctSteering =0
     if steering != 0:
         print(f"Corrected Steer: {steering}")
-        return steering * -1
-    return 0
+        correctSteering = steering * -1
+    myCar.write(throttle=throttle, steering=correctSteering, LEDs=LEDs)
+        
+    
+    
 
 def main():
     global stop_threads
@@ -111,6 +137,8 @@ def main():
         lidar_device.terminate() 
         myCar.terminate()
         sys.exit()
+
+
 
 if __name__ == '__main__':
     main()
