@@ -31,7 +31,7 @@ def lidar_avoidance():
     #sttering values to track the steering adjustment before and after avoidance
     last_steering_adjustment = 0.0
     original_path_steer =0.0
-    
+    avoiding_obstacles = False
     
     
     print("Lidar initialized...")  
@@ -43,10 +43,16 @@ def lidar_avoidance():
         if lidar_device.distances is None or lidar_device.angles is None or lidar_device.distances.size == 0:
             print("LiDAR data is empty! Skipping iteration.")
             continue  
+        
+        new_steering = 0.0
 
         # Define front view (angles between 60° and 120°)
         front_view = (lidar_device.angles >= np.deg2rad(60)) & (lidar_device.angles <= np.deg2rad(120))
         front_distances = lidar_device.distances[np.nonzero(front_view)]
+        
+        # Define back view (angles between 180 and 0)
+        back_view = (lidar_device.angles >= np.deg2rad(180)) & (lidar_device.angles <=np.deg2rad(0))
+        back_distances = lidar_device.distances[np.nonzero(back_view)]
 
         # Danger threshold for obstacle detection
         danger_threshold = 0.65
@@ -84,13 +90,29 @@ def lidar_avoidance():
             else:
                 new_steering = 0.0  # Go straight
                 throttle = 0.07
+            
+           
+            
         else:
-            a = 0.0
+            if avoiding_obstacles: 
+                print("Returning to OG Path")
+                steering = 0.7 * steering + 0.3 * original_path_steer
+                if abs(steering - original_path_steer) < 0.05: 
+                    avoid_obstacles = False
             
             
         # If car had deviated away from the path, we need to correct it here - Bass
             #I tried soemthing but it did not work lmao, so I deleted it all
             # Might have been too computationally expensive for the car, it stopped driving lmao
+            
+        '''
+        Joseph: 
+        Logic:
+            -keep track of horizontal information from the lidar ie. 180-210 for right and 330-0 for left
+            -once obect is detected in this range begin to incrementally correct steering
+            -only need to correct steering until the car can recognize lanes again > model will take over for 
+            lane detection
+        '''
         
 
         # Smooth steering adjustment
