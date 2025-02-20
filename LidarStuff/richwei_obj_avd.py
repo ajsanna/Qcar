@@ -97,6 +97,12 @@ def lidar_avoidance():
               
                 throttle = 0.07
              
+
+            '''
+            Logic Below for when there isn't and object detected
+                The car goes straight by default, or if the car had deviated from the path,
+                it will then counter steer to go back into the original path        
+            '''
         else:
             print("Time to go back")
             print(f"Returning to OG Path: Last Adjustment: {last_steering_adjustment} Current Steering: {steering} " )
@@ -107,26 +113,7 @@ def lidar_avoidance():
                 new_steering = last_steering_adjustment * -1
             else:
                 new_steering = 0.0
-
-            
-            
-           # if abs(steering - original_path_steer) < 0.05: 
-                
-                #avoid_obstacles = False
-            
-            
-        # If car had deviated away from the path, we need to correct it here - Bass
-            #I tried soemthing but it did not work lmao, so I deleted it all
-            # Might have been too computationally expensive for the car, it stopped driving lmao
-            
-        '''
-        Joseph: 
-        Logic:
-            -keep track of horizontal information from the lidar ie. 180-210 for right and 330-0 for left
-            -once obect is detected in this range begin to incrementally correct steering
-            -only need to correct steering until the car can recognize lanes again > model will take over for 
-            lane detection
-        '''
+        
         
 
         # Smooth steering adjustment
