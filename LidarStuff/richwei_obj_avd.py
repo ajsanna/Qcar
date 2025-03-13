@@ -1,3 +1,12 @@
+'''
+Program that utilizes the 2D Lidar for object avoidance. 
+
+- Car only drives straight unless there is an object in front to avoid. 
+- Car steers in left or right direction and turns back to the original path
+
+'''
+
+# Import libraries
 import threading
 import sys
 import os
@@ -5,6 +14,11 @@ import numpy as np
 import time
 from pal.products.qcar import QCar
 from lidar2 import Lidar
+
+from pal.utilities.math import *
+from pal.products.qcar import QCarCameras, IS_PHYSICAL_QCAR
+from pal.utilities.vision import Camera2D
+import tensorflow as tf
 
 # Environment Setup
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
@@ -103,6 +117,18 @@ def lidar_avoidance():
                 The car goes straight by default, or if the car had deviated from the path,
                 it will then counter steer to go back into the original path        
             '''
+
+            '''
+            Now time for us to implement switching back and forth to ML model 
+            Look at AutonomousLaneLoop.py for reference
+            I made a new file called lidar_and_model.py
+            This is just so we can test implementing the model and Lidar
+            We can just leave this one for pure Lidar since it works
+
+            Also need to adjust steering angle, further refinement stuff
+            -Rich
+
+            '''
         else:
             print("Time to go back")
             print(f"Returning to OG Path: Last Adjustment: {last_steering_adjustment} Current Steering: {steering} " )
@@ -123,13 +149,21 @@ def lidar_avoidance():
         # Apply control commands to the car
         myCar.write(throttle=throttle, steering=steering, LEDs=LEDs)
         time.sleep(0.1)
-    
-    
 
+def loadModel(filename):
+    driving_model = tf.lite.Interpreter(model_path=filename)
+    driving_model.allocate_tensors()
+    return driving_model
+        
 def main():
     global stop_threads
     drive_thread = threading.Thread(target=lidar_avoidance if avoid_obstacles else drive_straight)
     
+    # Loading in the model 
+    driving_model = loadModel("Models/track2.tflite")
+    input_details = driving_model.get_input_details()
+    output_details = driving_model.get_output_details()
+
     try:
         drive_thread.start()
         
@@ -142,8 +176,6 @@ def main():
         lidar_device.terminate() 
         myCar.terminate()
         sys.exit()
-
-
 
 if __name__ == '__main__':
     main()
