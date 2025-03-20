@@ -143,6 +143,7 @@ def Drive():
     driving_model = loadModel("Models/Mar12Class.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
+    
    
     # setup screen size for pygame display control panel. 
     screen_width = 800
@@ -177,6 +178,8 @@ def Drive():
     turn_signal_timer = 0.0
     turn_signal_interval = 0.5
     turn_signal_state = 0 
+
+    counter=0
 
     # steering classes coorolated to model prediction via "One Hot Encoding"
     steering_classes = [-0.5, -.4375, -.375, -.3125, -.25, -.1875, -.125, -.0625, 0, .0625, .125, .1875, .25, .3125, .375, .4375, 0.5]
@@ -329,6 +332,7 @@ def Drive():
                 steering = 0
                 AUTONOMOUS_MODE = False
             else:
+                
                 throttle = .075 # locked throttle for steer only models 
                 image_cap_np = camPreview(camIDs=["front"]) #take image and store as NP array for efficiency 
                 height, width = image_cap_np.shape[:2] 
@@ -364,7 +368,9 @@ def Drive():
                 driving_model.invoke()
                 #predictions is the 17 index array of probabilities [x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x] where 0<=x<=1
                 predictions = driving_model.get_tensor(output_details[0]['index'])
-                
+                counter +=1
+                print(f"Counter: {counter}")
+
                 class_assign = np.argmax(predictions) #find index of max probability using argmax.
                 #print(class_assign)
                 steering = steering_classes[class_assign] #give steer index to the car for immediate use. 

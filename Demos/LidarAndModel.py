@@ -1,23 +1,55 @@
 '''
-
 =========================================================================================
 Program that combines both Lidar and ML model for autonomous vehicle navigation
 =========================================================================================
 
 Description:
 ------------
+This Program allows the Qaunser Q Car to utilize the LiDar readings to 
+avoid objects and countersteer back into path,and if no object is detected 
+return to using the model to follow the intended path. 
+EX: a loop with clear lane markings or a custom path.
 
 
+LiDar Features:
+---------------
+1. **Field of View**: We set the front feild of view to track objects from degrees 70 to 110.
+                    This reduces the noise from objects that are behind the car or to the side of the car.
+2. **Danger Threshold**: Set to .6. Any object detected within this threshold would then trigger the object avoidance logic,
+                        allowing the car to steer left or right based off of the clearence detected from each side rspectively.
+3. **Counter Steer**: After the car has sucessfully avoided the object, it then would perform a smooth counter steer, to return
+                    back to the deviated path.
 
-
-
-
+Model Features:
+---------------
+1. **Model Loading**:
+   - A TensorFlow Lite model is loaded via `loadModel("Models/Feb25.tflite")`.
+   - The model expects an input image and returns an array of probabilities for 17 steering classes.
+2. **Autonomous Driving**:
+   - The program continuously captures images from the front camera.
+   - The image is preprocessed (converted to grayscale and cropped).
+   - The image is sent to the TFLite model for classification.
+   - The predicted steering class is mapped to a steering value.
+   - Steering is adjusted based on the models prediction.
+   
+How To Use:
+-----------
+1. Place the desired **TFLite model** inside the `Models/` folder.
+2. Modify the model path on **line 254** if necessary.
+3. Ensure the Qanser Lidar File is in the same Directory. IE "lidarThread.py"
+4. Run the program using: py3 LidarAndModel.py
+5. EXIT with "ctrl+c"
 
 Authors:
 --------
 - **Richwei Chea** (richweichea@cpp.edu)
 - **Sebastian Cursaro** (scursaro@cpp.edu)
 - **Joseph Bui** (jhbui@cpp.edu)
+
+Model Engineers:
+--------
+- **Alexander Sanna** (ajsanna@cpp.edu)
+- **Matthew Baldivino** (mabaldivino@cpp.edu)
 
 '''
 # Import libraries
@@ -85,21 +117,37 @@ def getModelSteering(model, input_details, output_details):
     Get steering prediction from the ML model
     Returns: steering value
     """
+    counter =0
+
     image_cap_np = camPreview(camIDs=["front"])
-    
-    if image_cap_np is None:
-        print("Failed to capture image from camera")
-        return 0.0
-        
-    height, width = image_cap_np.shape[:2]
-    
-    # Crop image to ROI - focus on the road area
-    image_cap_np = image_cap_np[int(height*0.5):int(height*0.85),:]
-    
-    # Convert to grayscale and prepare for model input
-    image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY)
-    image_cap_grayscale = image_cap_grayscale[np.newaxis,:,:, np.newaxis]
-    image_cap_grayscale = image_cap_grayscale.astype('float32')
+    height, width = image_cap_np.shape[:2] 
+    image_cap_np = image_cap_np[int(height*.5):int(height*.85),:]
+    #crop image to ROI by slicing in half to where only the ground is visible.
+    image_cap_grayscale = cv2.cvtColor(image_cap_np, cv2.COLOR_BGR2GRAY) # black and white
+    image_cap_grayscale = image_cap_grayscale[np.newaxis,:,:, np.newaxis] #should be shape 1,77,420,1
+    image_cap_grayscale = image_cap_grayscale.astype('float32') #model takes in data as float32.
+                
+    photo = image_cap_grayscale
+    height, width = photo.shape[:2]
+
+    offset = int(width * 0.05)  # Adjust this as needed
+
+    # Define top-left and top-right triangular regions with a gap
+    top_left_triangle = np.array([[0, 0], [width // 2 - offset, 0], [0, height // 1.5 - offset]], np.int32)
+    top_right_triangle = np.array([[width, 0], [width // 2 + offset, 0], [width, height // 1.5 - offset]], np.int32)
+
+    # Create a mask (white image).
+    mask = np.ones_like(photo, dtype=np.uint8) * 255
+    mask = mask.astype('float32')
+                # Draw black triangles over the corners
+    cv2.fillPoly(mask, [top_left_triangle, top_right_triangle], (0, 0, 0))
+                
+                # Apply the mask to remove the corners
+    image_cap_grayscale = cv2.bitwise_and(photo, mask)
+    #take 10 pixels off the top for further cropping down to 1,67,420,1
+    #print(image_cap_grayscale.shape)
+    image_cap_grayscale = image_cap_grayscale[:,10:,:,:]
+               
     
     # Send image to the model
     model.set_tensor(input_details[0]['index'], image_cap_grayscale)
@@ -107,7 +155,12 @@ def getModelSteering(model, input_details, output_details):
     
     # Get predictions
     predictions = model.get_tensor(output_details[0]['index'])
+    
+    
     class_assign = np.argmax(predictions)
+    
+    counter+=1
+    print(f"\nPicture Sent: {counter} ")
 
     return steering_classes[class_assign]
 
@@ -173,16 +226,16 @@ def lidarThreadFunction(model, input_details, output_details):
                 print("Steering left to avoid obstacle")
                 new_steering = max_steering  # Steer left
                 last_steering_adjustment = 0.5
-                throttle = 0.06
+                throttle = 0.07
             elif right_clearance > left_clearance + 0.1:
                 print("Steering right to avoid obstacle")
                 new_steering = min_steering  # Steer right
                 last_steering_adjustment = -0.5
-                throttle = 0.06
+                throttle = 0.07
             else:
 
                 new_steering = 0.0  # Go straight
-                throttle = 0.07
+                throttle = 0.08
             
             # Smooth steering adjustment
             steering = 0.7 * steering + 0.3 * new_steering
@@ -216,9 +269,10 @@ def main():
     
     # Load the ML model
     print("Loading ML model...")
-    driving_model = loadModel("Models/Feb25.tflite")
+    driving_model = loadModel("Models/Mar12Class.tflite")
     input_details = driving_model.get_input_details()
     output_details = driving_model.get_output_details()
+    
     print("ML model loaded successfully")
     
     # Start the LiDAR thread
