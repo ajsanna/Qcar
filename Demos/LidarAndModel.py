@@ -65,6 +65,8 @@ from lidarThread import Lidar
 from pal.utilities.math import *
 from pal.utilities.vision import Camera2D
 import tensorflow as tf
+
+
 import pygame
 
 # Environment Setup
@@ -101,6 +103,7 @@ def loadModel(filename):
     driving_model = tf.lite.Interpreter(model_path=filename)
     driving_model.allocate_tensors()
     return driving_model
+    
 
 # Using the camPreview function from AutonomousLaneLoop
 def camPreview(camIDs, steering=0, throttle=0, catalog=None):

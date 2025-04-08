@@ -12,6 +12,15 @@ from pal.utilities.vision import Camera2D
 import tensorflow as tf
 
 
+gpus = tf.config.list_physical_devices('GPU')
+
+if gpus:
+    for gpu in gpus:
+        details = tf.config.experimental.get_device_details(gpu)
+        print(f"\nGPU: {gpu.name}, Details: {details}")
+else:
+    print("No GPU detected")
+
 device = "GPU" if tf.config.list_physical_devices('GPU') else "CPU"
 print("Model Utilizing: " + device + "\n")
 
@@ -48,7 +57,18 @@ obstacle_detected = False
 
 # Load the ML driving model
 def loadModel(filename):
-    driving_model = tf.lite.Interpreter(model_path=filename)
+    '''driving_model = tf.lite.Interpreter(model_path=filename)
+    driving_model.allocate_tensors()
+    return driving_model'''
+    try:
+        # Load TensorFlow Lite GPU delegate
+        gpu_delegate = tf.lite.experimental.load_delegate("libtensorflowlite_gpu_delegate.so")
+        driving_model = tf.lite.Interpreter(model_path=filename, experimental_delegates=[gpu_delegate])
+        print("Using GPU Delegate for TensorFlow Lite")
+    except Exception as e:
+        print("GPU delegate could not be loaded, falling back to CPU:", e)
+        driving_model = tf.lite.Interpreter(model_path=filename)
+
     driving_model.allocate_tensors()
     return driving_model
 

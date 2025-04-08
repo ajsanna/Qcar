@@ -34,7 +34,7 @@ lidar_device = Lidar(type='RPLidar')
 
 # Control variables
 steering = 0.0
-throttle = 0.07  # Ensure movement starts
+throttle = 0.08  # Ensure movement starts
 stop_threads = False
 avoid_obstacles = True
 
@@ -100,16 +100,19 @@ def lidar_avoidance():
                 print("Let's turn left")
                 new_steering = max_steering  # Steer left
                 last_steering_adjustment = 0.5
-                throttle = 0.06
+                throttle = 0.07
             elif right_clearance > left_clearance + 0.1:
                 print("let's turn right")
                 new_steering = min_steering  # Steer right
                 last_steering_adjustment = -0.5
-                throttle = 0.06
+                throttle = 0.07
             else:
                 new_steering = 0.0  # Go straight
               
                 throttle = 0.07
+
+            # Smooth steering adjustment
+            steering = 0.7 * steering + 0.3 * new_steering
              
 
             '''
@@ -132,7 +135,6 @@ def lidar_avoidance():
         else:
             print("Time to go back")
             print(f"Returning to OG Path: Last Adjustment: {last_steering_adjustment} Current Steering: {steering} " )
-
             if(last_steering_adjustment %2 == 0):
                 new_steering = last_steering_adjustment * -1
             elif(last_steering_adjustment %2 != 0):
@@ -150,19 +152,15 @@ def lidar_avoidance():
         myCar.write(throttle=throttle, steering=steering, LEDs=LEDs)
         time.sleep(0.1)
 
-def loadModel(filename):
-    driving_model = tf.lite.Interpreter(model_path=filename)
-    driving_model.allocate_tensors()
-    return driving_model
         
 def main():
     global stop_threads
     drive_thread = threading.Thread(target=lidar_avoidance if avoid_obstacles else drive_straight)
     
     # Loading in the model 
-    driving_model = loadModel("Models/track2.tflite")
-    input_details = driving_model.get_input_details()
-    output_details = driving_model.get_output_details()
+    #driving_model = loadModel("Models/track2.tflite")
+    #input_details = driving_model.get_input_details()
+    #output_details = driving_model.get_output_details()
 
     try:
         drive_thread.start()
